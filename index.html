@@ -5,7 +5,7 @@
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Webamp - Radio Viet</title>
-<style>html,body{margin:0;padding:0;background:#000}</style>
+<style>html,body{margin:0;padding:0;background:#000} #webamp{transition:transform .25s ease}</style>
 </head>
 <body>
 <div id="app"></div>
@@ -393,6 +393,7 @@ webamp.renderWhenReady(document.getElementById("app")).then(function(){
     // cao playlist cho vừa tỉ lệ màn hình.
     var __zoomed = false;
     var __mainShaded = false;
+    var __lastZoomKey = "";
     // Kích thước màn hình NHÌN THẤY (trên điện thoại, visualViewport
     // trừ thanh địa chỉ trình duyệt; innerHeight thì tính cả phần bị
     // che nên scale theo nó sẽ làm trình phát to hơn màn hình).
@@ -412,6 +413,7 @@ webamp.renderWhenReady(document.getElementById("app")).then(function(){
         var w = document.getElementById("webamp");
         if(!w) return;
         if(!__zoomed){
+            __lastZoomKey = "";
             try {
                 var orig = window.__origPlSize || [0, 0];
                 webamp.store.dispatch({type:"WINDOW_SIZE_CHANGED", windowId:"playlist", size:orig});
@@ -436,6 +438,13 @@ webamp.renderWhenReady(document.getElementById("app")).then(function(){
                 var diff = Math.abs(sy - scaleX);
                 if(diff < bestDiff){ bestDiff = diff; bestEh = eh; }
             }
+            // Chi ap dung khi thong so doi (cung 1 co man hinh goi lai
+            // thi bo qua) de khong bi nhay 2 lan: lan 1 vua xong, lan 2
+            // (resize/thanh dia chi) goi lai cung gia tri thi khong
+            // lam gi them.
+            var __key = vw + "x" + vh + "x" + _mainH + "x" + bestEh + "x" + __mdH();
+            if(__key === __lastZoomKey) return;
+            __lastZoomKey = __key;
             webamp.store.dispatch({type:"WINDOW_SIZE_CHANGED", windowId:"playlist", size:[0, bestEh]});
             try {
                 webamp.store.dispatch({type:"UPDATE_WINDOW_POSITIONS", positions:{main:{x:0,y:0}, equalizer:{x:0,y:_mainH}, milkdrop:{x:0,y:_mainH+116}, playlist:{x:0,y:_mainH+116+__mdH()}}, absolute:true});
