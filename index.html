@@ -15,6 +15,10 @@
 <script src="butterchurnPresets.min.js"></script>
 <script src="webamp.bundle.min.js"></script>
 <script>
+// Fork: danh sach kenh doc tu radio.m3u cung thu muc (muon them/bot/sua
+// kenh chi can up lai file radio.m3u, khong can sua html). TRACKS duoi
+// day chi la du phong khi khong tai duoc radio.m3u (mo file truc tiep,
+// mang loi...).
 var TRACKS = [
   {
     "metaData": {
@@ -304,10 +308,41 @@ var TRACKS = [
     "url": "https://oneway.out.airtime.pro/oneway_a"
   }
 ];
+// Doc #EXTM3U: moi cap "#EXTINF:-1,Ten kenh" + dong link ke sau thanh 1 kenh.
+// Dong link khong co EXTINF thi lay chinh link lam ten.
+function parseM3U(text) {
+  var lines = text.replace(/^\uFEFF/, "").split(/\r?\n/);
+  var list = [], title = null;
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].trim();
+    if (!line) { continue; }
+    if (line.indexOf("#EXTINF:") === 0) {
+      var comma = line.indexOf(",");
+      title = comma >= 0 ? line.slice(comma + 1).trim() : "";
+      continue;
+    }
+    if (line.charAt(0) === "#") { continue; }
+    list.push({metaData: {artist: "", title: title || line}, url: line});
+    title = null;
+  }
+  return list;
+}
+// Tai radio.m3u cung thu muc (no-cache de sua file la trang nap lai ngay);
+// loi hoac file rong thi dung TRACKS du phong.
+function loadTracks() {
+  return fetch("radio.m3u", {cache: "no-cache"}).then(function(res){
+    if (!res.ok) { throw new Error("HTTP " + res.status); }
+    return res.text();
+  }).then(function(text){
+    var list = parseM3U(text);
+    return list.length > 0 ? list : TRACKS;
+  }).catch(function(){ return TRACKS; });
+}
+function startWebamp(tracks) {
 var webamp = new Webamp({
     initialSkin: {url: "Winamp5_Classified_v5.5_0_3h53.wsz"},
     availableSkins: [{name: "Winamp5 Classified", url: "Winamp5_Classified_v5.5_0_3h53.wsz"}],
-    initialTracks: TRACKS,
+    initialTracks: tracks,
     // EQ mac dinh TAT (fork: tat la nguon di thang ra loa), volume 100%.
     __initialState: {media: {volume: 100}, equalizer: {on: false}},
     __butterchurnOptions: {
@@ -328,6 +363,8 @@ webamp.renderWhenReady(document.getElementById("app")).then(function(){
     try { webamp.store.dispatch({type: "SET_EQ_OFF"}); } catch(e){}
     window.webamp = webamp;
 });
+}
+loadTracks().then(startWebamp);
 </script>
 </body>
 </html>
