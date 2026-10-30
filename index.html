@@ -486,6 +486,7 @@ webamp.renderWhenReady(document.getElementById("app")).then(function(){
             } catch(err){}
         }
         __zoomed = !__zoomed;
+        __zoomToggledAt = Date.now();
         // Chi ap dung 1 lan (ban cu goi 2 lan cach nhau 700ms, lan 2
         // tinh lai theo kich thuoc man hinh da doi -> nhay them 1 cai
         // lam to hon man hinh). Thanh dia chi hien/an lam doi kich
@@ -495,8 +496,14 @@ webamp.renderWhenReady(document.getElementById("app")).then(function(){
     // Dang full ma man hinh doi kich thuoc (thanh dia chi hien/an,
     // xoay may) thi tinh lai cho vua, khong de thua/thieu.
     var __zoomResizeT = null;
+    var __zoomToggledAt = 0;
     function __onZoomResize(){
         if(!__zoomed) return;
+        // Bo qua resize trong 1 giay dau sau khi bam full: thanh dia
+        // chi hien/an ngay luc do lam doi co man hinh, goi lai
+        // applyZoom gay ra cai nhay thu 2. Sau 1 giay (xoay may, thanh
+        // dia chi doi that) thi tinh lai binh thuong.
+        if(Date.now() - __zoomToggledAt < 1000) return;
         if(__zoomResizeT) clearTimeout(__zoomResizeT);
         __zoomResizeT = setTimeout(applyZoom, 200);
     }
