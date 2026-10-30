@@ -344,7 +344,9 @@ var webamp = new Webamp({
     availableSkins: [{name: "Winamp5 Classified", url: "Winamp5_Classified_v5.5_0_3h53.wsz"}],
     initialTracks: tracks,
     // EQ mac dinh TAT (fork: tat la nguon di thang ra loa), volume 100%.
-    __initialState: {media: {volume: 100}, equalizer: {on: false}},
+    // Fork: cua so Milkdrop cao hon mac dinh (size [0,2] = 275x174) de
+    // khung video 256x140 gan dung 16:9 (mac dinh 275x116 chi cho 256x82).
+    __initialState: {media: {volume: 100}, equalizer: {on: false}, windows: {genWindows: {milkdrop: {size: [0, 2]}}}},
     __butterchurnOptions: {
         importButterchurn: function(){ return Promise.resolve(window.butterchurn); },
         getPresets: function(){
@@ -362,6 +364,28 @@ webamp.renderWhenReady(document.getElementById("app")).then(function(){
     try { webamp.setVolume(100); } catch(e){}
     try { webamp.store.dispatch({type: "SET_EQ_OFF"}); } catch(e){}
     window.webamp = webamp;
+    // Giong ban Webamp truoc kia: khi tai file tren may len (nut ADD /
+    // keo-tha vao playlist, link blob:), an cac kenh mac dinh tren host
+    // di, chi giu file vua tai.
+    try {
+        webamp.store.subscribe(function(){
+            try {
+                var st = webamp.store.getState();
+                var order = st.playlist && st.playlist.trackOrder ? st.playlist.trackOrder : [];
+                if(!order.length) return;
+                var media = st.tracks || st.media || {};
+                var isLocal = function(id){
+                    var m = media[id];
+                    return m && m.url && typeof m.url === "string" && m.url.indexOf("blob:") === 0;
+                };
+                var localIds = order.filter(isLocal);
+                if(!localIds.length) return;
+                if(order.length === localIds.length) return;
+                var webIds = order.filter(function(id){ return !isLocal(id); });
+                if(webIds.length) webamp.store.dispatch({type: "REMOVE_TRACKS", ids: webIds});
+            } catch(e){}
+        });
+    } catch(e){}
 });
 }
 loadTracks().then(startWebamp);
