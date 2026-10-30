@@ -13,7 +13,7 @@
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.7.4/dist/hls.min.js"></script>
 <script src="butterchurn.min.js"></script>
 <script src="butterchurnPresets.min.js"></script>
-<script src="webamp.bundle.min.js?v=e8c0bbca"></script>
+<script src="webamp.bundle.min.js?v=07417d0c"></script>
 <script>
 // Fork: danh sach kenh doc tu radio.m3u cung thu muc (muon them/bot/sua
 // kenh chi can up lai file radio.m3u, khong can sua html). TRACKS duoi
@@ -392,8 +392,15 @@ webamp.renderWhenReady(document.getElementById("app")).then(function(){
     // PC thì vừa chiều dọc. Bản cũ scale() cả khối #webamp, có chỉnh
     // cao playlist cho vừa tỉ lệ màn hình.
     var __zoomed = false;
-    var __mainShaded = false;
     var __lastZoomKey = "";
+    // Chieu cao cua so: thu gon (shade) chi con thanh tieu de 14px,
+    // doc truc tiep tu store (dung cho ca nut bam lan menu/phim tat).
+    function __winH(id, fullH){
+        try {
+            var gw = webamp.store.getState().windows.genWindows[id];
+            return gw && gw.shade ? 14 : fullH;
+        } catch(e){ return fullH; }
+    }
     // Kích thước màn hình NHÌN THẤY (trên điện thoại, visualViewport
     // trừ thanh địa chỉ trình duyệt; innerHeight thì tính cả phần bị
     // che nên scale theo nó sẽ làm trình phát to hơn màn hình).
@@ -418,8 +425,9 @@ webamp.renderWhenReady(document.getElementById("app")).then(function(){
                 var orig = window.__origPlSize || [0, 0];
                 webamp.store.dispatch({type:"WINDOW_SIZE_CHANGED", windowId:"playlist", size:orig});
                 var xC = Math.round((__vp().w - 275) / 2);
-                var mh = __mainShaded ? 14 : 116;
-                webamp.store.dispatch({type:"UPDATE_WINDOW_POSITIONS", positions:{main:{x:xC,y:0}, equalizer:{x:xC,y:mh}, milkdrop:{x:xC,y:mh+116}, playlist:{x:xC,y:mh+116+__mdH()}}, absolute:true});
+                var mh = __winH("main", 116);
+                var eh0 = __winH("equalizer", 116);
+                webamp.store.dispatch({type:"UPDATE_WINDOW_POSITIONS", positions:{main:{x:xC,y:0}, equalizer:{x:xC,y:mh}, milkdrop:{x:xC,y:mh+eh0}, playlist:{x:xC,y:mh+eh0+__mdH()}}, absolute:true});
             } catch(e){}
             w.style.transform = "scale(1)";
             w.style.position = "absolute"; w.style.left = "0px"; w.style.top = "0px"; w.style.margin = "0px";
@@ -430,10 +438,11 @@ webamp.renderWhenReady(document.getElementById("app")).then(function(){
             var vp = __vp();
             var vw = vp.w, vh = vp.h;
             var scaleX = vw / 275;
-            var _mainH = __mainShaded ? 14 : 116;
+            var _mainH = __winH("main", 116);
+            var _eqH = __winH("equalizer", 116);
             var bestEh = 0, bestDiff = 1e9;
             for(var eh=0; eh<=40; eh++){
-                var total = _mainH + 116 + __mdH() + 116 + eh * 29;
+                var total = _mainH + _eqH + __mdH() + 116 + eh * 29;
                 var sy = vh / total;
                 var diff = Math.abs(sy - scaleX);
                 if(diff < bestDiff){ bestDiff = diff; bestEh = eh; }
@@ -442,14 +451,14 @@ webamp.renderWhenReady(document.getElementById("app")).then(function(){
             // thi bo qua) de khong bi nhay 2 lan: lan 1 vua xong, lan 2
             // (resize/thanh dia chi) goi lai cung gia tri thi khong
             // lam gi them.
-            var __key = vw + "x" + vh + "x" + _mainH + "x" + bestEh + "x" + __mdH();
+            var __key = vw + "x" + vh + "x" + _mainH + "x" + _eqH + "x" + bestEh + "x" + __mdH();
             if(__key === __lastZoomKey) return;
             __lastZoomKey = __key;
             webamp.store.dispatch({type:"WINDOW_SIZE_CHANGED", windowId:"playlist", size:[0, bestEh]});
             try {
-                webamp.store.dispatch({type:"UPDATE_WINDOW_POSITIONS", positions:{main:{x:0,y:0}, equalizer:{x:0,y:_mainH}, milkdrop:{x:0,y:_mainH+116}, playlist:{x:0,y:_mainH+116+__mdH()}}, absolute:true});
+                webamp.store.dispatch({type:"UPDATE_WINDOW_POSITIONS", positions:{main:{x:0,y:0}, equalizer:{x:0,y:_mainH}, milkdrop:{x:0,y:_mainH+_eqH}, playlist:{x:0,y:_mainH+_eqH+__mdH()}}, absolute:true});
             } catch(e){}
-            var totalH = _mainH + 116 + __mdH() + 116 + bestEh * 29;
+            var totalH = _mainH + _eqH + __mdH() + 116 + bestEh * 29;
             var scaleY = vh / totalH;
             var diffRatio = scaleX ? Math.abs(scaleY - scaleX) / scaleX : 1;
             if(diffRatio <= 0.05){
@@ -509,6 +518,22 @@ webamp.renderWhenReady(document.getElementById("app")).then(function(){
     }
     window.addEventListener("resize", __onZoomResize);
     try { if(window.visualViewport) window.visualViewport.addEventListener("resize", __onZoomResize); } catch(e){}
+    // Thu gon/mo EQ (hoac Main) khi dang full thi playlist tu dan ra/
+    // co lai cho vua man hinh: theo doi trang thai shade trong store
+    // (nut thu gon tren cua so, menu, phim tat deu di qua store).
+    var __lastShadeKey = "";
+    try {
+        webamp.store.subscribe(function(){
+            if(!__zoomed) return;
+            try {
+                var gw = webamp.store.getState().windows.genWindows;
+                var key = (gw.main && gw.main.shade ? "1" : "0") + (gw.equalizer && gw.equalizer.shade ? "1" : "0");
+                if(key === __lastShadeKey) return;
+                __lastShadeKey = key;
+                setTimeout(applyZoom, 100);
+            } catch(e){}
+        });
+    } catch(e){}
     function pickTitleButton(cx, cy){
         try {
             var tb = document.getElementById("title-bar");
@@ -530,13 +555,13 @@ webamp.renderWhenReady(document.getElementById("app")).then(function(){
         if(!sh) return;
         e.preventDefault(); e.stopPropagation();
         try { webamp.store.dispatch({type:"TOGGLE_WINDOW_SHADE_MODE", windowId:"main"}); } catch(err){}
-        __mainShaded = !__mainShaded;
         setTimeout(function(){
             try {
                 if(__zoomed){ applyZoom(); return; }
                 var xC = Math.round((window.innerWidth - 275) / 2);
-                var mh = __mainShaded ? 14 : 116;
-                webamp.store.dispatch({type:"UPDATE_WINDOW_POSITIONS", positions:{main:{x:xC,y:0}, equalizer:{x:xC,y:mh}, milkdrop:{x:xC,y:mh+116}, playlist:{x:xC,y:mh+116+__mdH()}}, absolute:true});
+                var mh = __winH("main", 116);
+                var eh0 = __winH("equalizer", 116);
+                webamp.store.dispatch({type:"UPDATE_WINDOW_POSITIONS", positions:{main:{x:xC,y:0}, equalizer:{x:xC,y:mh}, milkdrop:{x:xC,y:mh+eh0}, playlist:{x:xC,y:mh+eh0+__mdH()}}, absolute:true});
             } catch(err2){}
         }, 200);
     }, true);
