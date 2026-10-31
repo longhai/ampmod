@@ -130,9 +130,14 @@ var webampOptions = {
         var url = null;
         // Fork: nap lai nguon da luu tu menu Nguon (ListMenu): URL duoc
         // dat san vao __pendingM3uUrl thi dung luon, khoi hoi prompt.
+        // Nap tu menu save thi KHONG xoa danh sach cu, de gop nhieu
+        // nguon thanh 1 danh sach (chi nhap .m3u qua ADD -> Add URL
+        // moi an cac kenh mac dinh).
+        var fromSaveMenu = false;
         if (window.__pendingM3uUrl) {
             url = window.__pendingM3uUrl;
             window.__pendingM3uUrl = null;
+            fromSaveMenu = true;
         } else {
             try { url = window.prompt("Nhập URL của kênh/bài hát (mp3, m3u8...) hoặc file danh sách .m3u:", "https://"); } catch (e) {}
         }
@@ -161,14 +166,44 @@ var webampOptions = {
                             srcName = srcName.replace(/\.m3u$/i, "");
                             saveM3uSource(url, srcName);
                         } catch (e) {}
-                        // Fork: nhap .m3u qua link thi an cac kenh mac
-                        // dinh (giong nut file): chi giu cac kenh vua
-                        // nhap, danh sach gon hon.
-                        try {
-                            var st0 = window.webamp && window.webamp.store ? window.webamp.store.getState() : null;
-                            var order0 = st0 && st0.playlist && st0.playlist.trackOrder ? st0.playlist.trackOrder : [];
-                            if (order0.length) { window.webamp.store.dispatch({type: "REMOVE_TRACKS", ids: order0.slice()}); }
-                        } catch (e) {}
+                        // Fork: gop tu menu save (fromSaveMenu) thi
+                        // loai kenh TRUNG: cung nhom + cung ten + cung
+                        // link nguon thi chi giu 1 cai (kenh cung ten
+                        // nhung khac link la luong khac nhau nen van
+                        // giu ca 2). So sanh theo nhom + ten hien thi
+                        // + URL tuyet doi.
+                        if (fromSaveMenu) {
+                            try {
+                                var st1 = window.webamp && window.webamp.store ? window.webamp.store.getState() : null;
+                                var seenKeys = {};
+                                if (st1 && st1.tracks && st1.playlist && st1.playlist.trackOrder) {
+                                    st1.playlist.trackOrder.forEach(function(id){
+                                        var t = st1.tracks[id];
+                                        if (!t || !t.url) { return; }
+                                        var k = (t.group || "") + "\u0000" + (t.title || t.defaultName || "") + "\u0000" + t.url;
+                                        seenKeys[k] = true;
+                                    });
+                                }
+                                list = list.filter(function(tr){
+                                    var k = (tr.group || "") + "\u0000" + ((tr.metaData && tr.metaData.title) || "") + "\u0000" + tr.url;
+                                    if (seenKeys[k]) { return false; }
+                                    seenKeys[k] = true;
+                                    return true;
+                                });
+                            } catch (e) {}
+                        }
+                        // Fork: nhap .m3u qua ADD -> Add URL thi an
+                        // cac kenh mac dinh (giong nut file): chi giu
+                        // cac kenh vua nhap, danh sach gon hon. Nap lai
+                        // tu menu save thi KHONG an/xoa danh sach cu
+                        // (fromSaveMenu) de gop nhieu nguon thanh 1.
+                        if (!fromSaveMenu) {
+                            try {
+                                var st0 = window.webamp && window.webamp.store ? window.webamp.store.getState() : null;
+                                var order0 = st0 && st0.playlist && st0.playlist.trackOrder ? st0.playlist.trackOrder : [];
+                                if (order0.length) { window.webamp.store.dispatch({type: "REMOVE_TRACKS", ids: order0.slice()}); }
+                            } catch (e) {}
+                        }
                         return list;
                     }
                 }
