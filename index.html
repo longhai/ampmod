@@ -13,7 +13,7 @@
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.7.4/dist/hls.min.js"></script>
 <script src="butterchurn.min.js"></script>
 <script src="butterchurnPresets.min.js"></script>
-<script src="webamp.bundle.min.js?v=30f99c51"></script>
+<script src="webamp.bundle.min.js?v=cdf7e38e"></script>
 <script>
 // Fork: danh sach kenh doc tu radio.m3u cung thu muc (muon them/bot/sua
 // kenh chi can up lai file radio.m3u, khong can sua html). Khong con danh
@@ -127,71 +127,94 @@ var webampOptions = {
     // in Webamp" vi chua co ham nay. Gio hoi URL roi them vao cuoi playlist
     // (them xong thi nhap doi vao bai moi them de phat).
     handleAddUrlEvent: async function() {
-        var url = null;
+        var input = null;
         // Fork: nap lai nguon da luu tu menu Nguon (ListMenu): URL duoc
         // dat san vao __pendingM3uUrl thi dung luon, khoi hoi prompt.
         if (window.__pendingM3uUrl) {
-            url = window.__pendingM3uUrl;
+            input = window.__pendingM3uUrl;
             window.__pendingM3uUrl = null;
         } else {
-            try { url = window.prompt("Nhập URL của kênh/bài hát (mp3, m3u8...) hoặc file danh sách .m3u:", "https://"); } catch (e) {}
+            try { input = window.prompt("Nhập URL của kênh/bài hát (mp3, m3u8...) hoặc file danh sách .m3u. Dán nhiều link cùng lúc cũng được, mỗi link 1 dòng:", "https://"); } catch (e) {}
         }
-        if (url == null) { return null; }
-        url = url.trim();
-        if (!url) { return null; }
-        // Link .m3u la file danh sach (nhieu kenh/bai): tai ve, doc ra
-        // tung kenh roi them het vao playlist. (.m3u8 la luong HLS 1 kenh,
-        // khong phai file danh sach nen them thang nhu 1 bai.)
-        var cleanUrl = url.split("?")[0].split("#")[0];
-        if (/\.m3u$/i.test(cleanUrl)) {
-            try {
-                var res = await fetch(url, {cache: "no-cache"});
-                if (res.ok) {
-                    var list = parseM3U(await res.text());
-                    if (list.length > 0) {
-                        list.forEach(function(tr){
-                            try { tr.url = new URL(tr.url, url).href; } catch (e) {}
-                        });
-                        // Fork: luu nguon .m3u vua nhap vao localStorage
-                        // de mo lai tu menu Nguon (ListMenu). Ten hien
-                        // thi lay ten file .m3u.
-                        try {
-                            var srcName = cleanUrl.replace(/\/+$/, "").split("/").pop() || url;
-                            try { srcName = decodeURIComponent(srcName); } catch (e) {}
-                            srcName = srcName.replace(/\.m3u$/i, "");
-                            saveM3uSource(url, srcName);
-                        } catch (e) {}
-                        // Fork: nhap .m3u qua link thi an cac kenh mac
-                        // dinh (giong nut file): chi giu cac kenh vua
-                        // nhap, danh sach gon hon.
-                        try {
-                            var st0 = window.webamp && window.webamp.store ? window.webamp.store.getState() : null;
-                            var order0 = st0 && st0.playlist && st0.playlist.trackOrder ? st0.playlist.trackOrder : [];
-                            if (order0.length) { window.webamp.store.dispatch({type: "REMOVE_TRACKS", ids: order0.slice()}); }
-                        } catch (e) {}
-                        return list;
+        if (input == null) { return null; }
+        // Fork: nap NHIEU link 1 luc: tach chuoi nhap thanh tung URL
+        // (ngat dong, dau phay/cham phay, khoang trang — phong khi
+        // prompt tren dien thoai gop dong thanh khoang trang), loai
+        // trung lap, giu nguyen thu tu dan.
+        var urls = input.split(/[\s,;]+/).map(function(s){ return s.trim(); }).filter(function(s){ return !!s; });
+        var seen = {};
+        urls = urls.filter(function(s){ if (seen[s]) { return false; } seen[s] = true; return true; });
+        if (!urls.length) { return null; }
+        var allTracks = [];
+        var importedM3u = false;
+        for (var i = 0; i < urls.length; i++) {
+            var url = urls[i];
+            // Link .m3u la file danh sach (nhieu kenh/bai): tai ve, doc
+            // ra tung kenh roi them het vao playlist. (.m3u8 la luong
+            // HLS 1 kenh, khong phai file danh sach nen them thang
+            // nhu 1 bai.)
+            var cleanUrl = url.split("?")[0].split("#")[0];
+            var handled = false;
+            if (/\.m3u$/i.test(cleanUrl)) {
+                try {
+                    var res = await fetch(url, {cache: "no-cache"});
+                    if (res.ok) {
+                        var list = parseM3U(await res.text());
+                        if (list.length > 0) {
+                            list.forEach(function(tr){
+                                try { tr.url = new URL(tr.url, url).href; } catch (e) {}
+                            });
+                            // Fork: luu nguon .m3u vua nhap vao
+                            // localStorage de mo lai tu menu Nguon
+                            // (ListMenu). Ten hien thi lay ten file .m3u.
+                            try {
+                                var srcName = cleanUrl.replace(/\/+$/, "").split("/").pop() || url;
+                                try { srcName = decodeURIComponent(srcName); } catch (e) {}
+                                srcName = srcName.replace(/\.m3u$/i, "");
+                                saveM3uSource(url, srcName);
+                            } catch (e) {}
+                            importedM3u = true;
+                            allTracks = allTracks.concat(list);
+                            handled = true;
+                        }
                     }
-                }
-            } catch (e) {}
-            // Tai/ doc khong duoc (vd. server khong cho CORS): roi ve
-            // them link goc nhu 1 bai (se khong phat duoc neu no la file
-            // danh sach that).
-        }
-        // Ten hien thi: lay phan cuoi cua duong dan, bo duoi file; neu
-        // khong co ten (vd. .../playlist.m3u8) thi dung ten host.
-        var name = "";
-        try {
-            var clean = cleanUrl.replace(/\/+$/, "");
-            var last = clean.split("/").pop() || "";
-            try { last = decodeURIComponent(last); } catch (e) {}
-            name = last.replace(/\.(mp3|m4a|aac|ogg|wav|flac|m3u8?|pls)$/i, "");
-            if (!name || /^(playlist|index|master|chunklist)$/i.test(name)) {
-                var host = "";
-                try { host = new URL(url).hostname.replace(/^www\./, ""); } catch (e) {}
-                name = host || url;
+                } catch (e) {}
+                // Tai/ doc khong duoc (vd. server khong cho CORS): roi
+                // ve them link goc nhu 1 bai (se khong phat duoc neu
+                // no la file danh sach that).
             }
-        } catch (e) { name = url; }
-        return [{metaData: {artist: "", title: name}, url: url}];
+            if (!handled) {
+                // Ten hien thi: lay phan cuoi cua duong dan, bo duoi
+                // file; neu khong co ten (vd. .../playlist.m3u8) thi
+                // dung ten host.
+                var name = "";
+                try {
+                    var clean = cleanUrl.replace(/\/+$/, "");
+                    var last = clean.split("/").pop() || "";
+                    try { last = decodeURIComponent(last); } catch (e) {}
+                    name = last.replace(/\.(mp3|m4a|aac|ogg|wav|flac|m3u8?|pls)$/i, "");
+                    if (!name || /^(playlist|index|master|chunklist)$/i.test(name)) {
+                        var host = "";
+                        try { host = new URL(url).hostname.replace(/^www\./, ""); } catch (e) {}
+                        name = host || url;
+                    }
+                } catch (e) { name = url; }
+                allTracks.push({metaData: {artist: "", title: name}, url: url});
+            }
+        }
+        if (!allTracks.length) { return null; }
+        // Fork: neu trong dot nhap co it nhat 1 file .m3u thi an cac
+        // kenh mac dinh (giong nhap 1 file .m3u rieng le): chi giu
+        // cac kenh vua nhap, danh sach gon hon. Chi nhap link le
+        // (mp3/m3u8) thi them vao cuoi, khong an kenh cu.
+        if (importedM3u) {
+            try {
+                var st0 = window.webamp && window.webamp.store ? window.webamp.store.getState() : null;
+                var order0 = st0 && st0.playlist && st0.playlist.trackOrder ? st0.playlist.trackOrder : [];
+                if (order0.length) { window.webamp.store.dispatch({type: "REMOVE_TRACKS", ids: order0.slice()}); }
+            } catch (e) {}
+        }
+        return allTracks;
     },
     // EQ mac dinh TAT (fork: tat la nguon di thang ra loa), volume 100%.
     // Fork: cua so Milkdrop cao hon mac dinh (size [0,2] = 275x174) de
