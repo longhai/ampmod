@@ -66,6 +66,31 @@ var webampOptions = {
         {name: "Winamp5 Classified", url: "skins/Winamp5_Classified_v5.5.wsz"}
     ],
     initialTracks: tracks,
+    // Nut ADD -> "Add URL" trong playlist: Webamp goc hien "Not supported
+    // in Webamp" vi chua co ham nay. Gio hoi URL roi them vao cuoi playlist
+    // (them xong thi nhap doi vao bai moi them de phat).
+    handleAddUrlEvent: function() {
+        var url = null;
+        try { url = window.prompt("Nhập URL của kênh/bài hát (mp3, m3u8...):", "https://"); } catch (e) {}
+        if (url == null) { return null; }
+        url = url.trim();
+        if (!url) { return null; }
+        // Ten hien thi: lay phan cuoi cua duong dan, bo duoi file; neu
+        // khong co ten (vd. .../playlist.m3u8) thi dung ten host.
+        var name = "";
+        try {
+            var clean = url.split("?")[0].split("#")[0].replace(/\/+$/, "");
+            var last = clean.split("/").pop() || "";
+            try { last = decodeURIComponent(last); } catch (e) {}
+            name = last.replace(/\.(mp3|m4a|aac|ogg|wav|flac|m3u8?|pls)$/i, "");
+            if (!name || /^(playlist|index|master|chunklist)$/i.test(name)) {
+                var host = "";
+                try { host = new URL(url).hostname.replace(/^www\./, ""); } catch (e) {}
+                name = host || url;
+            }
+        } catch (e) { name = url; }
+        return [{metaData: {artist: "", title: name}, url: url}];
+    },
     // EQ mac dinh TAT (fork: tat la nguon di thang ra loa), volume 100%.
     // Fork: cua so Milkdrop cao hon mac dinh (size [0,2] = 275x174) de
     // khung video 256x140 gan dung 16:9 (mac dinh 275x116 chi cho 256x82).
