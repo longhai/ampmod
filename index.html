@@ -69,17 +69,38 @@ var webampOptions = {
     // Nut ADD -> "Add URL" trong playlist: Webamp goc hien "Not supported
     // in Webamp" vi chua co ham nay. Gio hoi URL roi them vao cuoi playlist
     // (them xong thi nhap doi vao bai moi them de phat).
-    handleAddUrlEvent: function() {
+    handleAddUrlEvent: async function() {
         var url = null;
-        try { url = window.prompt("Nhập URL của kênh/bài hát (mp3, m3u8...):", "https://"); } catch (e) {}
+        try { url = window.prompt("Nhập URL của kênh/bài hát (mp3, m3u8...) hoặc file danh sách .m3u:", "https://"); } catch (e) {}
         if (url == null) { return null; }
         url = url.trim();
         if (!url) { return null; }
+        // Link .m3u la file danh sach (nhieu kenh/bai): tai ve, doc ra
+        // tung kenh roi them het vao playlist. (.m3u8 la luong HLS 1 kenh,
+        // khong phai file danh sach nen them thang nhu 1 bai.)
+        var cleanUrl = url.split("?")[0].split("#")[0];
+        if (/\.m3u$/i.test(cleanUrl)) {
+            try {
+                var res = await fetch(url, {cache: "no-cache"});
+                if (res.ok) {
+                    var list = parseM3U(await res.text());
+                    if (list.length > 0) {
+                        list.forEach(function(tr){
+                            try { tr.url = new URL(tr.url, url).href; } catch (e) {}
+                        });
+                        return list;
+                    }
+                }
+            } catch (e) {}
+            // Tai/ doc khong duoc (vd. server khong cho CORS): roi ve
+            // them link goc nhu 1 bai (se khong phat duoc neu no la file
+            // danh sach that).
+        }
         // Ten hien thi: lay phan cuoi cua duong dan, bo duoi file; neu
         // khong co ten (vd. .../playlist.m3u8) thi dung ten host.
         var name = "";
         try {
-            var clean = url.split("?")[0].split("#")[0].replace(/\/+$/, "");
+            var clean = cleanUrl.replace(/\/+$/, "");
             var last = clean.split("/").pop() || "";
             try { last = decodeURIComponent(last); } catch (e) {}
             name = last.replace(/\.(mp3|m4a|aac|ogg|wav|flac|m3u8?|pls)$/i, "");
