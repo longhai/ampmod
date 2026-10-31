@@ -13,7 +13,7 @@
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.7.4/dist/hls.min.js"></script>
 <script src="butterchurn.min.js"></script>
 <script src="butterchurnPresets.min.js"></script>
-<script src="webamp.bundle.min.js?v=f9ed529d"></script>
+<script src="webamp.bundle.min.js?v=3f905d87"></script>
 <script>
 // Fork: danh sach kenh doc tu radio.m3u cung thu muc (muon them/bot/sua
 // kenh chi can up lai file radio.m3u, khong can sua html). Khong con danh
@@ -79,6 +79,14 @@ function saveM3uSource(url, name) {
     localStorage.setItem("webamp-m3u-sources", JSON.stringify(arr));
   } catch (e) {}
 }
+// Fork: lan dau mo app (chua co nguon nao luu) thi nap san nguon
+// channels.m3u quen thuoc de menu Nguon co san 1 muc, khoi phai nhap
+// lai link moi thay duoc danh sach.
+try {
+  if (getM3uSources().length === 0) {
+    saveM3uSource("https://raw.githubusercontent.com/giangnam0201/All-In-One-IPTV/refs/heads/main/channels.m3u", "channels");
+  }
+} catch (e) {}
 // Fork: nap 1 file .m3u tu URL da luu (menu Nguon o ListMenu) thi
 // khong hoi prompt nua: ListMenu dat URL vao window.__pendingM3uUrl
 // roi goi addFilesFromUrl, handleAddUrlEvent se lay URL do thay vi
@@ -94,6 +102,7 @@ try { savedSkinUrl = localStorage.getItem("webamp-skin-url"); } catch (e) {}
 var webampOptions = {
     availableSkins: [
         {name: "Neumorphism", url: "skins/neumorphism.wsz"},
+        {name: "DENIS_WINAMP_SKIN", url: "skins/DENIS_WINAMP_SKIN.wsz"},
         {name: "Axlar", url: "skins/Axlar.wsz"},
         {name: "Blizzard v2", url: "skins/Blizzard_v2.wsz"},
         {name: "DENON-ANTIQUE", url: "skins/DENON-ANTIQUE.wsz"},
