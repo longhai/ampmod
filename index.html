@@ -13,7 +13,7 @@
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.7.4/dist/hls.min.js"></script>
 <script src="butterchurn.min.js"></script>
 <script src="butterchurnPresets.min.js"></script>
-<script src="webamp.bundle.min.js?v=17f9cd15"></script>
+<script src="webamp.bundle.min.js?v=f9ed529d"></script>
 <script>
 // Fork: danh sach kenh doc tu radio.m3u cung thu muc (muon them/bot/sua
 // kenh chi can up lai file radio.m3u, khong can sua html). Khong con danh
@@ -59,6 +59,31 @@ function loadTracks() {
     return parseM3U(text);
   }).catch(function(){ return []; });
 }
+// Fork: nguon .m3u da nhap qua ADD -> Add URL, luu vao localStorage
+// ("webamp-m3u-sources") de mo lai tu menu LIST goc duoi phai cua
+// playlist (menu new/save/load cu: giu "new", thay "save"/"load" bang
+// danh sach nguon). Moi nguon: {url, name, addedAt}. Trung URL thi
+// dua len dau, toi da 20 nguon.
+function getM3uSources() {
+  try {
+    var raw = localStorage.getItem("webamp-m3u-sources");
+    var arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  } catch (e) { return []; }
+}
+function saveM3uSource(url, name) {
+  try {
+    var arr = getM3uSources().filter(function(s){ return s && s.url !== url; });
+    arr.unshift({url: url, name: name || url, addedAt: Date.now()});
+    if (arr.length > 20) { arr.length = 20; }
+    localStorage.setItem("webamp-m3u-sources", JSON.stringify(arr));
+  } catch (e) {}
+}
+// Fork: nap 1 file .m3u tu URL da luu (menu Nguon o ListMenu) thi
+// khong hoi prompt nua: ListMenu dat URL vao window.__pendingM3uUrl
+// roi goi addFilesFromUrl, handleAddUrlEvent se lay URL do thay vi
+// hoi nguoi dung. (Khong tu dispatch ADD_TRACK_FROM_URL o day vi
+// can id duy nhat + SET_MEDIA_TAGS nhu loadMediaFile lam.)
 function startWebamp(tracks) {
 // Skin: mac dinh la skin goc cua Webamp (khong dat initialSkin).
 // Neu truoc day da chon skin trong thu muc skins/ thi mo lai skin do:
@@ -68,14 +93,14 @@ var savedSkinUrl = null;
 try { savedSkinUrl = localStorage.getItem("webamp-skin-url"); } catch (e) {}
 var webampOptions = {
     availableSkins: [
+        {name: "Neumorphism", url: "skins/neumorphism.wsz"},
         {name: "Axlar", url: "skins/Axlar.wsz"},
         {name: "Blizzard v2", url: "skins/Blizzard_v2.wsz"},
         {name: "DENON-ANTIQUE", url: "skins/DENON-ANTIQUE.wsz"},
         {name: "KENWOOD ALLORA III", url: "skins/KENWOOD_ALLORA_III.wsz"},
         {name: "Pioneer", url: "skins/Pioneer.wsz"},
         {name: "TopazAmp v5", url: "skins/TopazAmp_v5.wsz"},
-        {name: "Winamp5 Classified", url: "skins/Winamp5_Classified_v5.5.wsz"},
-        {name: "DENIS WINAMP", url: "skins/DENIS_WINAMP_SKIN.wsz"}
+        {name: "Winamp5 Classified", url: "skins/Winamp5_Classified_v5.5.wsz"}
     ],
     initialTracks: tracks,
     // Nut ADD -> "Add URL" trong playlist: Webamp goc hien "Not supported
@@ -83,7 +108,14 @@ var webampOptions = {
     // (them xong thi nhap doi vao bai moi them de phat).
     handleAddUrlEvent: async function() {
         var url = null;
-        try { url = window.prompt("Nhập URL của kênh/bài hát (mp3, m3u8...) hoặc file danh sách .m3u:", "https://"); } catch (e) {}
+        // Fork: nap lai nguon da luu tu menu Nguon (ListMenu): URL duoc
+        // dat san vao __pendingM3uUrl thi dung luon, khoi hoi prompt.
+        if (window.__pendingM3uUrl) {
+            url = window.__pendingM3uUrl;
+            window.__pendingM3uUrl = null;
+        } else {
+            try { url = window.prompt("Nhập URL của kênh/bài hát (mp3, m3u8...) hoặc file danh sách .m3u:", "https://"); } catch (e) {}
+        }
         if (url == null) { return null; }
         url = url.trim();
         if (!url) { return null; }
@@ -100,6 +132,15 @@ var webampOptions = {
                         list.forEach(function(tr){
                             try { tr.url = new URL(tr.url, url).href; } catch (e) {}
                         });
+                        // Fork: luu nguon .m3u vua nhap vao localStorage
+                        // de mo lai tu menu Nguon (ListMenu). Ten hien
+                        // thi lay ten file .m3u.
+                        try {
+                            var srcName = cleanUrl.replace(/\/+$/, "").split("/").pop() || url;
+                            try { srcName = decodeURIComponent(srcName); } catch (e) {}
+                            srcName = srcName.replace(/\.m3u$/i, "");
+                            saveM3uSource(url, srcName);
+                        } catch (e) {}
                         // Fork: nhap .m3u qua link thi an cac kenh mac
                         // dinh (giong nut file): chi giu cac kenh vua
                         // nhap, danh sach gon hon.
