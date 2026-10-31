@@ -13,7 +13,7 @@
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.7.4/dist/hls.min.js"></script>
 <script src="butterchurn.min.js"></script>
 <script src="butterchurnPresets.min.js"></script>
-<script src="webamp.bundle.min.js?v=2905d52f"></script>
+<script src="webamp.bundle.min.js?v=de85dab6"></script>
 <script>
 // Fork: danh sach kenh doc tu radio.m3u cung thu muc (muon them/bot/sua
 // kenh chi can up lai file radio.m3u, khong can sua html). Khong con danh
@@ -21,20 +21,26 @@
 // trong (mo file truc tiep hoac mang loi thi khong co kenh).
 // Doc #EXTM3U: moi cap "#EXTINF:-1,Ten kenh" + dong link ke sau thanh 1 kenh.
 // Dong link khong co EXTINF thi lay chinh link lam ten.
+// Fork: doc ca group-title="..." (vd. VTV, HTV) de hien thi danh sach
+// theo nhom cho gon.
 function parseM3U(text) {
   var lines = text.replace(/^\uFEFF/, "").split(/\r?\n/);
-  var list = [], title = null;
+  var list = [], title = null, group = null;
   for (var i = 0; i < lines.length; i++) {
     var line = lines[i].trim();
     if (!line) { continue; }
     if (line.indexOf("#EXTINF:") === 0) {
       var comma = line.indexOf(",");
       title = comma >= 0 ? line.slice(comma + 1).trim() : "";
+      var gm = line.match(/group-title\s*=\s*"([^"]*)"/) || line.match(/group-title\s*=\s*([^,\s]+)/);
+      group = gm ? gm[1].trim() : null;
       continue;
     }
     if (line.charAt(0) === "#") { continue; }
-    list.push({metaData: {artist: "", title: title || line}, url: line});
-    title = null;
+    var tr = {metaData: {artist: "", title: title || line}, url: line};
+    if (group) { tr.group = group; }
+    list.push(tr);
+    title = null; group = null;
   }
   return list;
 }
@@ -88,6 +94,14 @@ var webampOptions = {
                         list.forEach(function(tr){
                             try { tr.url = new URL(tr.url, url).href; } catch (e) {}
                         });
+                        // Fork: nhap .m3u qua link thi an cac kenh mac
+                        // dinh (giong nut file): chi giu cac kenh vua
+                        // nhap, danh sach gon hon.
+                        try {
+                            var st0 = window.webamp && window.webamp.store ? window.webamp.store.getState() : null;
+                            var order0 = st0 && st0.playlist && st0.playlist.trackOrder ? st0.playlist.trackOrder : [];
+                            if (order0.length) { window.webamp.store.dispatch({type: "REMOVE_TRACKS", ids: order0.slice()}); }
+                        } catch (e) {}
                         return list;
                     }
                 }
@@ -162,7 +176,10 @@ webamp.renderWhenReady(document.getElementById("app")).then(function(){
     // bộ trình phát cho vừa màn hình — điện thoại thì vừa hết màn hình,
     // PC thì vừa chiều dọc. Bản cũ scale() cả khối #webamp, có chỉnh
     // cao playlist cho vừa tỉ lệ màn hình.
-    var __zoomed = false;
+    // Fork: mac dinh mo trang la full (vua man hinh) luon, khong can
+    // bam nut "–". Bam nut "–" thi thu nho ve co thuong, bam lai thi
+    // full tro lai.
+    var __zoomed = true;
     var __lastZoomKey = "";
     // Chieu cao cua so: thu gon (shade) chi con thanh tieu de 14px,
     // doc truc tiep tu store (dung cho ca nut bam lan menu/phim tat).
@@ -344,6 +361,16 @@ webamp.renderWhenReady(document.getElementById("app")).then(function(){
             if(pb === "minimize"){ toggleZoom(e); }
         } catch(err){}
     }, true);
+    // Fork: mac dinh full ngay khi mo trang — luu co playlist goc de
+    // bam "–" thu nho ve dung co do, roi phong to sau 300ms cho layout
+    // on dinh (giong bam nut "–" 1 lan).
+    try {
+        var stZ = webamp.store.getState();
+        var szZ = stZ.windows && stZ.windows.genWindows && stZ.windows.genWindows.playlist ? stZ.windows.genWindows.playlist.size : [0, 0];
+        window.__origPlSize = szZ;
+    } catch(err){}
+    __zoomToggledAt = Date.now();
+    setTimeout(applyZoom, 300);
 });
 }
 loadTracks().then(startWebamp);
