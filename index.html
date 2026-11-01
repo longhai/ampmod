@@ -13,7 +13,7 @@
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.7.4/dist/hls.min.js"></script>
 <script src="butterchurn.min.js"></script>
 <script src="butterchurnPresets.min.js"></script>
-<script src="webamp.bundle.min.js?v=4568d3e3"></script>
+<script src="webamp.bundle.min.js?v=5d175ee6"></script>
 <script>
 // Fork: danh sach kenh doc tu radio.m3u cung thu muc (muon them/bot/sua
 // kenh chi can up lai file radio.m3u, khong can sua html). Khong con danh
@@ -86,14 +86,17 @@ function removeM3uSource(url) {
   } catch (e) {}
 }
 // Fork: lan dau mo app (chua co nguon nao luu VA chua nap san lan
-// nao) thi nap san nguon channels.m3u quen thuoc de menu Nguon co
-// san 1 muc, khoi phai nhap lai link moi thay duoc danh sach. Co
+// nao) thi nap san cac nguon mac dinh cua ban de menu Nguon co
+// san, khoi phai nhap lai link moi thay duoc danh sach. Co
 // "webamp-m3u-seeded" de chi nap 1 lan — neu ban xoa het nguon thi
-// menu o trong, khong tu nap lai.
+// menu o trong, khong tu nap lai. Muon doi nguon mac dinh thi sua
+// cac URL o day.
 try {
   if (!localStorage.getItem("webamp-m3u-seeded")) {
     if (getM3uSources().length === 0) {
-      saveM3uSource("https://raw.githubusercontent.com/giangnam0201/All-In-One-IPTV/refs/heads/main/channels.m3u", "channels");
+      saveM3uSource("https://raw.githubusercontent.com/longhai/iptv/refs/heads/master/radio.m3u", "radio");
+      saveM3uSource("https://raw.githubusercontent.com/longhai/iptv/refs/heads/master/tv360.m3u", "tv360");
+      saveM3uSource("https://raw.githubusercontent.com/dovietsy/acestreamfb/refs/heads/main/acestreamfb.txt", "acestreamfb");
     }
     localStorage.setItem("webamp-m3u-seeded", "1");
   }
@@ -112,7 +115,6 @@ var savedSkinUrl = null;
 try { savedSkinUrl = localStorage.getItem("webamp-skin-url"); } catch (e) {}
 var webampOptions = {
     availableSkins: [
-        {name: "Neumorphism", url: "skins/neumorphism.wsz"},
         {name: "DENIS_WINAMP_SKIN", url: "skins/DENIS_WINAMP_SKIN.wsz"},
         {name: "Axlar", url: "skins/Axlar.wsz"},
         {name: "Blizzard v2", url: "skins/Blizzard_v2.wsz"},
@@ -146,9 +148,12 @@ var webampOptions = {
         if (!url) { return null; }
         // Link .m3u la file danh sach (nhieu kenh/bai): tai ve, doc ra
         // tung kenh roi them het vao playlist. (.m3u8 la luong HLS 1 kenh,
-        // khong phai file danh sach nen them thang nhu 1 bai.)
+        // khong phai file danh sach nen them thang nhu 1 bai.) File
+        // .txt chua danh sach dang M3U (vd. acestreamfb.txt) thi doc
+        // nhu .m3u luon; neu tai ve ma khong phai dang M3U thi roi ve
+        // them link goc nhu 1 bai.
         var cleanUrl = url.split("?")[0].split("#")[0];
-        if (/\.m3u$/i.test(cleanUrl)) {
+        if (/\.(m3u|txt)$/i.test(cleanUrl)) {
             try {
                 var res = await fetch(url, {cache: "no-cache"});
                 if (res.ok) {
@@ -159,12 +164,19 @@ var webampOptions = {
                         });
                         // Fork: luu nguon .m3u vua nhap vao localStorage
                         // de mo lai tu menu Nguon (ListMenu). Ten hien
-                        // thi lay ten file .m3u.
+                        // thi lay ten file .m3u. Rieng nut "load" nap
+                        // lai danh sach mac dinh (radio.m3u) thi KHONG
+                        // luu (co __skipSaveM3uSource) de khoi hien
+                        // "radio" trong muc save.
                         try {
-                            var srcName = cleanUrl.replace(/\/+$/, "").split("/").pop() || url;
-                            try { srcName = decodeURIComponent(srcName); } catch (e) {}
-                            srcName = srcName.replace(/\.m3u$/i, "");
-                            saveM3uSource(url, srcName);
+                            var skipSave = !!window.__skipSaveM3uSource;
+                            window.__skipSaveM3uSource = null;
+                            if (!skipSave) {
+                                var srcName = cleanUrl.replace(/\/+$/, "").split("/").pop() || url;
+                                try { srcName = decodeURIComponent(srcName); } catch (e) {}
+                                srcName = srcName.replace(/\.(m3u|txt)$/i, "");
+                                saveM3uSource(url, srcName);
+                            }
                         } catch (e) {}
                         // Fork: gop tu menu save (fromSaveMenu) thi
                         // loai kenh TRUNG: cung nhom + cung ten + cung
