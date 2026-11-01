@@ -13,7 +13,7 @@
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.7.4/dist/hls.min.js"></script>
 <script src="butterchurn.min.js"></script>
 <script src="butterchurnPresets.min.js"></script>
-<script src="webamp.bundle.min.js?v=2d588263"></script>
+<script src="webamp.bundle.min.js?v=3c1b984b"></script>
 <script>
 // Fork: danh sach kenh doc tu radio.m3u cung thu muc (muon them/bot/sua
 // kenh chi can up lai file radio.m3u, khong can sua html). Khong con danh
@@ -306,6 +306,18 @@ webamp.renderWhenReady(document.getElementById("app")).then(function(){
             return 116 + (sz[1] || 0) * 29;
         } catch(e){ return 174; }
     }
+    // Chieu cao cua so Thu vien (chi tinh khi dang mo; dong thi 0).
+    // Giong Video: 116 + size[1]*29 (size mac dinh [0,5] = 261px);
+    // thu gon (shade) thi chi con thanh 14px.
+    function __libH(){
+        try {
+            var gw = webamp.store.getState().windows.genWindows.medialibrary;
+            if(!gw || !gw.open) return 0;
+            if(gw.shade) return 14;
+            var sz = gw.size || [0, 5];
+            return 116 + (sz[1] || 0) * 29;
+        } catch(e){ return 0; }
+    }
     function applyZoom(){
         var w = document.getElementById("webamp");
         if(!w) return;
@@ -317,7 +329,8 @@ webamp.renderWhenReady(document.getElementById("app")).then(function(){
                 var xC = Math.round((__vp().w - 275) / 2);
                 var mh = __winH("main", 116);
                 var eh0 = __winH("equalizer", 116);
-                webamp.store.dispatch({type:"UPDATE_WINDOW_POSITIONS", positions:{main:{x:xC,y:0}, equalizer:{x:xC,y:mh}, milkdrop:{x:xC,y:mh+eh0}, playlist:{x:xC,y:mh+eh0+__mdH()}}, absolute:true});
+                var plH0 = 116 + (orig[1] || 0) * 29;
+                webamp.store.dispatch({type:"UPDATE_WINDOW_POSITIONS", positions:{main:{x:xC,y:0}, equalizer:{x:xC,y:mh}, milkdrop:{x:xC,y:mh+eh0}, playlist:{x:xC,y:mh+eh0+__mdH()}, medialibrary:{x:xC,y:mh+eh0+__mdH()+plH0}}, absolute:true});
             } catch(e){}
             w.style.transform = "scale(1)";
             w.style.position = "absolute"; w.style.left = "0px"; w.style.top = "0px"; w.style.margin = "0px";
@@ -332,7 +345,7 @@ webamp.renderWhenReady(document.getElementById("app")).then(function(){
             var _eqH = __winH("equalizer", 116);
             var bestEh = 0, bestDiff = 1e9;
             for(var eh=0; eh<=40; eh++){
-                var total = _mainH + _eqH + __mdH() + 116 + eh * 29;
+                var total = _mainH + _eqH + __mdH() + 116 + eh * 29 + __libH();
                 var sy = vh / total;
                 var diff = Math.abs(sy - scaleX);
                 if(diff < bestDiff){ bestDiff = diff; bestEh = eh; }
@@ -341,14 +354,14 @@ webamp.renderWhenReady(document.getElementById("app")).then(function(){
             // thi bo qua) de khong bi nhay 2 lan: lan 1 vua xong, lan 2
             // (resize/thanh dia chi) goi lai cung gia tri thi khong
             // lam gi them.
-            var __key = vw + "x" + vh + "x" + _mainH + "x" + _eqH + "x" + bestEh + "x" + __mdH();
+            var __key = vw + "x" + vh + "x" + _mainH + "x" + _eqH + "x" + bestEh + "x" + __mdH() + "x" + __libH();
             if(__key === __lastZoomKey) return;
             __lastZoomKey = __key;
             webamp.store.dispatch({type:"WINDOW_SIZE_CHANGED", windowId:"playlist", size:[0, bestEh]});
             try {
-                webamp.store.dispatch({type:"UPDATE_WINDOW_POSITIONS", positions:{main:{x:0,y:0}, equalizer:{x:0,y:_mainH}, milkdrop:{x:0,y:_mainH+_eqH}, playlist:{x:0,y:_mainH+_eqH+__mdH()}}, absolute:true});
+                webamp.store.dispatch({type:"UPDATE_WINDOW_POSITIONS", positions:{main:{x:0,y:0}, equalizer:{x:0,y:_mainH}, milkdrop:{x:0,y:_mainH+_eqH}, playlist:{x:0,y:_mainH+_eqH+__mdH()}, medialibrary:{x:0,y:_mainH+_eqH+__mdH()+116+bestEh*29}}, absolute:true});
             } catch(e){}
-            var totalH = _mainH + _eqH + __mdH() + 116 + bestEh * 29;
+            var totalH = _mainH + _eqH + __mdH() + 116 + bestEh * 29 + __libH();
             var scaleY = vh / totalH;
             var diffRatio = scaleX ? Math.abs(scaleY - scaleX) / scaleX : 1;
             if(diffRatio <= 0.05){
@@ -417,7 +430,7 @@ webamp.renderWhenReady(document.getElementById("app")).then(function(){
             if(!__zoomed) return;
             try {
                 var gw = webamp.store.getState().windows.genWindows;
-                var key = (gw.main && gw.main.shade ? "1" : "0") + (gw.equalizer && gw.equalizer.shade ? "1" : "0");
+                var key = (gw.main && gw.main.shade ? "1" : "0") + (gw.equalizer && gw.equalizer.shade ? "1" : "0") + (gw.medialibrary && gw.medialibrary.open ? "1" : "0") + (gw.medialibrary && gw.medialibrary.shade ? "1" : "0");
                 if(key === __lastShadeKey) return;
                 __lastShadeKey = key;
                 setTimeout(applyZoom, 100);
@@ -451,7 +464,10 @@ webamp.renderWhenReady(document.getElementById("app")).then(function(){
                 var xC = Math.round((window.innerWidth - 275) / 2);
                 var mh = __winH("main", 116);
                 var eh0 = __winH("equalizer", 116);
-                webamp.store.dispatch({type:"UPDATE_WINDOW_POSITIONS", positions:{main:{x:xC,y:0}, equalizer:{x:xC,y:mh}, milkdrop:{x:xC,y:mh+eh0}, playlist:{x:xC,y:mh+eh0+__mdH()}}, absolute:true});
+                var plSz1 = [0, 0];
+                try { plSz1 = webamp.store.getState().windows.genWindows.playlist.size || [0, 0]; } catch(e){}
+                var plH1 = __winH("playlist", 116 + (plSz1[1] || 0) * 29);
+                webamp.store.dispatch({type:"UPDATE_WINDOW_POSITIONS", positions:{main:{x:xC,y:0}, equalizer:{x:xC,y:mh}, milkdrop:{x:xC,y:mh+eh0}, playlist:{x:xC,y:mh+eh0+__mdH()}, medialibrary:{x:xC,y:mh+eh0+__mdH()+plH1}}, absolute:true});
             } catch(err2){}
         }, 200);
     }, true);
