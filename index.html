@@ -11,9 +11,16 @@
 <div id="app"></div>
 <!-- hls.js: Webamp goc khong co HLS, fork dung hls.js cho link .m3u8 (ban Gemini dung @latest = 1.7.4, ban cu ghim 1.5.13 thi Da Nang khong chay) -->
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.7.4/dist/hls.min.js"></script>
-<script src="butterchurn.min.js"></script>
-<script src="butterchurnPresets.min.js"></script>
-<script src="webamp.bundle.min.js?v=95adf8eb"></script>
+<!-- SỬA 02/11 — butterchurn dùng link mạng luôn, khỏi up file: cả 2 file
+     CDN đều khớp byte-identique với file local cũ (md5 trùng):
+     butterchurn.min.js = butterchurn@2.6.7/lib/butterchurn.min.js,
+     butterchurnPresets.min.js = butterchurn-presets@2.4.7/lib/butterchurnPresets.min.js.
+     (Chú ý: bản 3.0.0-beta.5 trên CDN là file ESM, không gắn được bằng
+     thẻ script thường — file local vốn là bản 2.6.7 UMD.)
+     Không cần up 2 file butterchurn*.min.js lên host nữa. -->
+<script src="https://cdn.jsdelivr.net/npm/butterchurn@2.6.7/lib/butterchurn.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/butterchurn-presets@2.4.7/lib/butterchurnPresets.min.js"></script>
+<script src="webamp.bundle.min.js?v=ee84e3c7"></script>
 <script>
 // Fork: danh sach kenh doc tu radio.m3u cung thu muc (muon them/bot/sua
 // kenh chi can up lai file radio.m3u, khong can sua html). Khong con danh
